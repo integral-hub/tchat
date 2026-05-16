@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TeleChater — Admin Log</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/admin.css">
+</head>
+<body>
+
+<?php
+/**
+ * TeleChater — Admin Delivery Log
+ * ─
+ * Displays registered user sessions and the delivery log.
+ * IMPORTANT: Protect this page in production with HTTP Basic Auth or IP whitelist.
+ */
+
+require_once 'setme/config.php';
+require_once 'setme/registry.php';
+
+//  Load data 
+
+// Delivery log (last 100 entries, newest first)
+$logEntries = [];
+if (file_exists(DELIVERY_LOG)) {
+    $lines = array_filter(explode("\n", file_get_contents(DELIVERY_LOG)));
+    foreach (array_slice(array_reverse($lines), 0, 100) as $line) {
+        $entry = json_decode($line, true);
+        if ($entry) $logEntries[] = $entry;
+    }
+}
+
+// User registry (most recent first, limit 50)
+$registry    = loadRegistry();
+$recentUsers = array_slice(
+    array_reverse($registry, true),
+    0, 50
+);
+
+$totalUsers   = count($registry);
+$totalDelivered = count(array_filter($logEntries, fn($e) => !empty($e['msgId'])));
+?>
+
+<!-- Page header -->
+<header class="adm-header">
+  <div>
+    <h1 class="adm-header__title">TeleChater Admin</h1>
+    <p class="adm-header__sub">Session log &amp; message delivery tracker</p>
+  </div>
+  <div class="adm-header__meta">
+    <span>Updated: <?= date('Y-m-d H:i:s') ?></span>
+    <a href="?" class="adm-btn">↻ Refresh</a>
+  </div>
+</header>
+
+<!-- Stats row -->
+<div class="adm-stats">
+  <div class="adm-stat">
+    <span class="adm-stat__value"><?= $totalUsers ?></span>
+    <span class="adm-stat__label">Total Sessions</span>
+  </div>
+  <div class="adm-stat">
+    <span class="adm-stat__value"><?= count($logEntries) ?></span>
+    <span class="adm-stat__label">Messages Logged</span>
+  </div>
+  <div class="adm-stat">
+    <span class="adm-stat__value"><?= $totalDelivered ?></span>
+    <span class="adm-stat__label">Delivered</span>
+  </div>
+</div>
+
+<!-- Two-column layout -->
+<div class="adm-grid">
+
+  <!-- User Sessions -->
+  <section class="adm-card">
+    <h2 class="adm-card__title">
+      <span class="adm-dot adm-dot--green"></span>
+      User Sessions (<?= $totalUsers ?>)
+    </h2>
+
+    <?php if (empty($recentUsers)): ?>
+      <p class="adm-empty">No sessions yet. Users appear here once they open the chat.</p>
+    <?php else: ?>
+      <ul class="adm-user-list">
+        <?php foreach ($recentUsers as $uid => $user):
+          $isReg    = ($user['userType'] ?? 'guest') === 'registered';
+          $icon     = $isReg ? '👤' : '👤';
+          $typeText = $isReg ? 'Registered' : 'Guest';
+          $typeCls  = $isReg ? 'adm-badge--reg' : 'adm-badge--guest';
+          $time     = isset($user['createdAt']) ? date('M d, H:i', $user['createdAt']) : '—';
+        ?>
+        <li class="adm-user">
+          <div class="adm-user__avatar"><?= $icon ?></div>
+          <div class="adm-user__info">
+            <strong><?= htmlspecialchars($user['displayName'] ?? 'Unknown') ?></strong>
+            <code class="adm-user__id"><?= htmlspecialchars($uid) ?></code>
+            <span class="adm-user__time"><?= $time ?></span>
+          </div>
+          <span class="adm-badge <?= $typeCls ?>"><?= $typeText ?></span>
+        </li>
+        <?php endforeach; ?>
+      </ul>
+    <?php endif; ?>
+  </section>
+
+  <!-- Delivery Log -->
+  <section class="adm-card">
+    <h2 class="adm-card__title">
+      <span class="adm-dot adm-dot--blue"></span>
+      Delivery Log (last 100)
+    </h2>
+
+    <?php if (empty($logEntries)): ?>
+      <p class="adm-empty">No messages delivered yet.</p>
+    <?php else: ?>
+      <div class="adm-table-wrap">
+        <table class="adm-table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>User</th>
+              <th>Preview</th>
+              <th>Msg ID</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php foreach ($logEntries as $e): ?>
+            <tr>
+              <td class="adm-mono"><?= date('H:i:s', $e['ts'] ?? 0) ?></td>
+              <td><?= htmlspecialchars(mb_substr($e['name'] ?? '—', 0, 20)) ?></td>
+              <td>
+                <span class="adm-preview"><?= htmlspecialchars($e['preview'] ?? '') ?></span>
+              </td>
+              <td class="adm-mono"><?= htmlspecialchars((string)($e['msgId'] ?? '—')) ?></td>
+              <td>
+                <?php if (!empty($e['msgId'])): ?>
+                  <span class="adm-badge adm-badge--green">✓ Delivered</span>
+                <?php else: ?>
+                  <span class="adm-badge adm-badge--amber">⏳ Pending</span>
+                <?php endif; ?>
+              </td>
+            </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+    <?php endif; ?>
+  </section>
+
+</div>
+
+<p class="adm-footer">
+  ⚠️ Protect this page with HTTP Basic Auth or an IP whitelist before deploying to production.
+</p>
+
+</body>
+</html>

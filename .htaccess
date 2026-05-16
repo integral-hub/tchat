@@ -1,0 +1,17 @@
+# Turn off directory listings
+Options -Indexes
+
+# Ensure mod_rewrite is on
+RewriteEngine On
+
+# Serve index.php as the directory index
+DirectoryIndex index.php
+
+# If request is exactly /index.php or the target is an existing file or directory, do nothing
+RewriteCond %{REQUEST_URI} ^/index\.php$ [OR]
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Otherwise route
+RewriteRule ^ index.php [L]
