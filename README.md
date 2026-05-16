@@ -134,8 +134,11 @@ Or simply include the `<style>` and `<script>` sections from `index.php` directl
 | Feature | Current approach |
 
 | Message fetching | Long-polling getUpdates |
+
 | User registry | JSON file |
+
 | Auth | Derive ID from email+name |
+
 | Multi-admin | Single ADMIN_CHAT_ID |
 
 For high traffic, switch to a Telegram webhook that writes incoming messages to a
